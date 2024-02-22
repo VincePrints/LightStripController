@@ -1,4 +1,4 @@
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 
 #define LED_PIN      4
 #define BUTTON_PIN   2    
@@ -118,7 +118,7 @@ void colorWipe(uint32_t c, uint8_t wait) {
 
 void rainbowCycle(uint8_t wait) {
   while (pwrState == HIGH) {
-    for (int i = 0; i < 256; i++) { // 5 cycles of all colors on wheel
+    for (int i = 0; i < 256; i++) {
       for (int j = 0; j < pixels.numPixels(); j++) {
         pixels.setPixelColor(j, Wheel(((j * 256 / pixels.numPixels()) + i) & 255));
       }
