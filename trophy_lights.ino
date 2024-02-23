@@ -1,111 +1,165 @@
 //Effects pulled from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
 
-#include <Neopixel.h>
+#include <Adafruit_NeoPixel.h>
 
 #define LED_PIN      4
-#define BUTTON_PIN   2    
-#define PIXEL_PIN    3
+#define BUTTON_PIN   3    
+#define PIXEL_PIN    5
 #define PIXEL_COUNT 33
 #define BRIGHTNESS 150
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-volatile int showType = 0;
-const int numShows = 16;
+volatile bool buttonPressed = false;
+volatile bool longPressActive = false;
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 300; // Adjust this value as needed
+unsigned long longPress = 3000; // Adjust this value as needed
+
+const int numShows = 15;
+int showType = 0;
+
+// Adjust this value as needed for the desired fire effect speed
+#define FIRE_DELAY 50
+unsigned long lastFireUpdate = 0;
+//
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Serial begin");
+
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonInterrupt, FALLING);
+
   pixels.begin();
-  startShow(0); // Initialize all pixels to 'off'
-  strip.setBrightness(BRIGHTNESS); //set brightness
+  pixels.show(); // Initialize all pixels to 'off'
+  pixels.setBrightness(BRIGHTNESS); //set brightness
+
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonInterrupt, FALLING);
 }
 
 void loop() {
   startShow(showType);
+  if (buttonPressed) {
+    handleButtonPress();
+    buttonPressed = false; // Reset buttonPressed flag
+    longPressActive = false; // Reset longPressActive flag
+  }
 }
 
 void buttonInterrupt() {
-  showType = ((showType + 1) % numShows);
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastDebounceTime >= debounceDelay) {
+    Serial.println("Button Pressed");
+    buttonPressed = true;
+    if (currentMillis - lastDebounceTime >= longPress) {
+      Serial.println("Long Press");
+      longPressActive = true; // Set long press flag
+    }
+    lastDebounceTime = currentMillis;
+  }
+}
+
+void handleButtonPress() {
+  if (longPressActive) {
+    showType = 0; // Set showType to 0 for long press
+  } else {
+    showType = (showType + 1) % numShows; // Increment showType for short press
+  }
+  pixels.clear(); // Clear pixels
+  pixels.show(); // Update pixels
 }
 
 void startShow(int i) {
   switch(i){
     case 0: Serial.println("Off");
-            colorWipe(strip.Color(  0,   0,   0), 10);
+            colorWipe(pixels.Color(  0,   0,   0), 10);
             break;
     case 1: Serial.println("White");
-            colorWipe(pixels.Color(0, 0, 0, 255), 50);
+            colorWipe(pixels.Color(100, 100, 100), 50);
             break;
     case 2: Serial.println("Red");
-            colorWipe(pixels.Color(255, 0, 0), 75);
+            colorWipe(pixels.Color(255, 0, 0), 50);
             break;
     case 3: Serial.println("Orange");
-            colorWipe(pixels.Color(200, 150, 0), 75);
+            colorWipe(pixels.Color(244, 50, 0), 50);
             break;
     case 4: Serial.println("Yellow");
-            colorWipe(pixels.Color(255, 255, 0), 75);
+            colorWipe(pixels.Color(255, 100, 0), 50);
             break;
     case 5: Serial.println("Green");
-            colorWipe(pixels.Color(0, 255, 0), 75);
+            colorWipe(pixels.Color(0, 255, 0), 50);
             break;
     case 6: Serial.println("Teal");
-            colorWipe(pixels.Color(0, 255, 255), 75);
+            colorWipe(pixels.Color(0, 255, 255), 50);
             break;
     case 7: Serial.println("Violet");
-            colorWipe(pixels.Color(150, 50, 255), 75);
+            colorWipe(pixels.Color(150, 50, 255), 50);
             break;
     case 8: Serial.println("Rainbow");
-            while (showType == 8) {rainbowCycle(50);}
-            break;
+            rainbowCycle(50);
+            break; // Add break statement here
     case 9: Serial.println("Rainbow Theater");
-            while (showType == 9) {theaterChaseRainbow(50);}
-            break;
+            theaterChaseRainbow(50);
+            break; // Add break statement here
     case 10: Serial.println("Strobe"); 
-            while (showType == 10) {strobe(0xff, 0xff, 0xff, 10, 50, 1000);}
-            break;
+            strobe(100, 100, 100, 10, 50, 500);
+            break; // Add break statement here
     case 11: Serial.println("Cylon Bounce"); 
-            while (showType == 11) {cylonBounce(0xff, 0, 0, 4, 10, 50);}
-            break;
+            cylonBounce(0xff, 0, 0, 4, 20, 50);
+            break; // Add break statement here
     case 12: Serial.println("Sparkle");
-            while (showType == 12) {sparkle(0xff, 0xff, 0xff, 0);}
-            break;
+            sparkle(200, 200, 200, 0);
+            break; // Add break statement here
     case 13: Serial.println("Fire"); 
-            while (showType == 13) {fire(55,120,15);}
-            break;
-    case 14: Serial.println("Bouncing Balls");
-            byte colors[3][3] =  { {0xff, 0,0},
-                                  {0xff, 0xff, 0xff},
-                                  {0, 0, 0xff} };
-            while (showType == 14) {bouncingColoredBalls(3, colors);}
-            break;
-    case 15: Serial.println("Meteor Rain");
-            while (showType == 15) {meteorRain(0xff,0xff,0xff,10, 64, true, 30);}
-            break;
+            fire(55,120);
+            break; // Add break statement here
+    case 14: Serial.println("Meteor Rain");
+            meteorRain(0xff,0xff,0xff,10, 64, true, 30);
+            break; // Add break statement here
   }
 }
 
 void colorWipe(uint32_t c, uint8_t wait) {
-  for(uint16_t i = 0; i < pixels.numPixels(); i++) {
-    pixels.setPixelColor(i, c);
+  static uint16_t currentPixel = 0;
+  static unsigned long lastUpdate = 0;
+  
+  if (millis() - lastUpdate >= wait) {
+    pixels.setPixelColor(currentPixel, c);
     pixels.show();
-    unsigned long start = millis();
-    while (millis() - start < wait) {}
+    
+    // Move to the next pixel
+    currentPixel++;
+    
+    // If we have reached the end, reset to the beginning
+    if (currentPixel >= pixels.numPixels()) {
+      currentPixel = 0;
+    }
+    
+    lastUpdate = millis();
   }
 }
 
+#define RAINBOW_CYCLE_DELAY 10  // Delay between each step in the rainbow cycle
+
+uint16_t rainbowCycleIndex = 0;  // Current position in the rainbow cycle
+
 void rainbowCycle(uint8_t wait) {
-  for (int i = 0; i < 256; i++) {
+  static unsigned long previousMillis = 0;
+  
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= RAINBOW_CYCLE_DELAY) {
+    previousMillis = currentMillis;
+
+    // Increment the rainbow cycle index
+    rainbowCycleIndex++;
+
+    // Update the colors of each pixel based on the current rainbow cycle index
     for (int j = 0; j < pixels.numPixels(); j++) {
-      pixels.setPixelColor(j, Wheel(((j * 256 / pixels.numPixels()) + i) & 255));
+      pixels.setPixelColor(j, Wheel(((j * 256 / pixels.numPixels()) + rainbowCycleIndex) & 255));
     }
     pixels.show();
-    unsigned long start = millis();
-    while (millis() - start < wait) {}
   }
 }
 
@@ -122,110 +176,147 @@ uint32_t Wheel(byte WheelPos) {
 }
 
 void theaterChaseRainbow(int wait) {
-  int firstPixelHue = 0;     // First pixel starts at red (hue 0)
-  for(int a=0; a<30; a++) {  // Repeat 30 times...
-    for(int b=0; b<3; b++) { //  'b' counts from 0 to 2...
-      strip.clear();         //   Set all pixels in RAM to 0 (off)
-      // 'c' counts up from 'b' to end of strip in increments of 3...
-      for(int c=b; c<strip.numPixels(); c += 3) {
-        // hue of pixel 'c' is offset by an amount to make one full
-        // revolution of the color wheel (range 65536) along the length
-        // of the strip (strip.numPixels() steps):
-        int      hue   = firstPixelHue + c * 65536L / strip.numPixels();
-        uint32_t color = strip.gamma32(strip.ColorHSV(hue)); // hue -> RGB
-        strip.setPixelColor(c, color); // Set pixel 'c' to value 'color'
+  static int firstPixelHue = 0;
+  static int chaseIndex = 0;
+  static unsigned long lastUpdate = 0;
+  
+  if (millis() - lastUpdate >= wait) {
+    pixels.clear();
+    for (int c = chaseIndex; c < PIXEL_COUNT; c += 3) {
+      int hue = firstPixelHue + c * 65536L / PIXEL_COUNT;
+      uint32_t color = pixels.gamma32(pixels.ColorHSV(hue));
+      pixels.setPixelColor(c, color);
+    }
+    pixels.show();
+    
+    // Increment chaseIndex for the next update
+    chaseIndex = (chaseIndex + 1) % 3;
+    
+    // Increment firstPixelHue for color wheel rotation
+    firstPixelHue += 65536 / 90;
+    
+    lastUpdate = millis();
+  }
+}
+
+void strobe(byte red, byte green, byte blue, int StrobeCount, int FlashDelay, int EndPause) {
+  for (int j = 0; j < StrobeCount; j++) {
+    // Turn on the pixels with the specified color
+    for (int i = 0; i < pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, pixels.Color(red, green, blue));
+    }
+    pixels.show(); // Show the updated pixel colors
+    delay(FlashDelay);
+
+    // Turn off all pixels (set them to black)
+    for (int i = 0; i < pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, pixels.Color(0, 0, 0));
+    }
+    pixels.show(); // Show the updated pixel colors
+    delay(FlashDelay);
+  }
+ 
+  delay(EndPause);
+}
+
+void cylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay) {
+  static int i = 0;
+  static bool movingRight = true;
+  static unsigned long lastUpdate = 0;
+  
+  if (millis() - lastUpdate >= SpeedDelay) {
+    pixels.clear();
+
+    // Draw the "eye"
+    for (int j = 0; j <= EyeSize; j++) {
+      pixels.setPixelColor(i + j, red, green, blue);
+    }
+
+    pixels.show();
+    
+    // Move the "eye" left or right
+    if (movingRight) {
+      i++;
+      // If the "eye" reaches the end, change direction
+      if (i >= PIXEL_COUNT - EyeSize) {
+        movingRight = false;
       }
-      strip.show();                // Update strip with new contents
-      delay(wait);                 // Pause for a moment
-      firstPixelHue += 65536 / 90; // One cycle of color wheel over 90 frames
+    } else {
+      i--;
+      // If the "eye" reaches the beginning, change direction
+      if (i <= 0) {
+        movingRight = true;
+      }
     }
-  }
-}
-
-void strobe(byte red, byte green, byte blue, int StrobeCount, int FlashDelay, int EndPause){
-  for(int j = 0; j < StrobeCount; j++) {
-    setAll(red,green,blue);
-    showStrip();
-    delay(FlashDelay);
-    setAll(0,0,0);
-    showStrip();
-    delay(FlashDelay);
-  }
- 
- delay(EndPause);
-}
-
-void cylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay){
-
-  for(int i = 0; i < PIXEL_COUNT-EyeSize-2; i++) {
-    setAll(0,0,0);
-    setPixel(i, red/10, green/10, blue/10);
-    for(int j = 1; j <= EyeSize; j++) {
-      setPixel(i+j, red, green, blue);
-    }
-    setPixel(i+EyeSize+1, red/10, green/10, blue/10);
-    showStrip();
-    delay(SpeedDelay);
+    
+    lastUpdate = millis();
   }
 
-  delay(ReturnDelay);
-
-  for(int i = PIXEL_COUNT-EyeSize-2; i > 0; i--) {
-    setAll(0,0,0);
-    setPixel(i, red/10, green/10, blue/10);
-    for(int j = 1; j <= EyeSize; j++) {
-      setPixel(i+j, red, green, blue);
-    }
-    setPixel(i+EyeSize+1, red/10, green/10, blue/10);
-    showStrip();
-    delay(SpeedDelay);
+  // Introduce a delay before reversing direction
+  if ((movingRight && i >= PIXEL_COUNT - EyeSize) || (!movingRight && i <= 0)) {
+    delay(ReturnDelay);
   }
- 
-  delay(ReturnDelay);
 }
 
 void sparkle(byte red, byte green, byte blue, int SpeedDelay) {
-  int Pixel = random(PIXEL_COUNT);
-  setPixel(Pixel,red,green,blue);
-  showStrip();
-  delay(SpeedDelay);
-  setPixel(Pixel,0,0,0);
+  static unsigned long lastUpdate = 0;
+  static int Pixel = 0;
+  static bool active = false;
+
+  if (!active) {
+    Pixel = random(PIXEL_COUNT);
+    pixels.setPixelColor(Pixel, red, green, blue);
+    pixels.show();
+    active = true;
+    lastUpdate = millis();
+  } else {
+    if (millis() - lastUpdate >= SpeedDelay) {
+      pixels.setPixelColor(Pixel, 0, 0, 0);
+      pixels.show();
+      active = false;
+    }
+  }
 }
 
-void fire(int Cooling, int Sparking, int SpeedDelay) {
+void fire(int Cooling, int Sparking) {
   static byte heat[PIXEL_COUNT];
   int cooldown;
  
-  // Step 1.  Cool down every cell a little
-  for( int i = 0; i < PIXEL_COUNT; i++) {
-    cooldown = random(0, ((Cooling * 10) / PIXEL_COUNT) + 2);
-   
-    if(cooldown>heat[i]) {
-      heat[i]=0;
-    } else {
-      heat[i]=heat[i]-cooldown;
+  unsigned long currentMillis = millis();
+
+  // Check if it's time to update the fire effect
+  if (currentMillis - lastFireUpdate >= FIRE_DELAY) {
+    lastFireUpdate = currentMillis;
+
+    // Step 1. Cool down every cell a little
+    for (int i = 0; i < PIXEL_COUNT; i++) {
+      cooldown = random(0, ((Cooling * 10) / PIXEL_COUNT) + 2);
+     
+      if (cooldown > heat[i]) {
+        heat[i] = 0;
+      } else {
+        heat[i] = heat[i] - cooldown;
+      }
     }
-  }
- 
-  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-  for( int k= PIXEL_COUNT - 1; k >= 2; k--) {
-    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2]) / 3;
-  }
    
-  // Step 3.  Randomly ignite new 'sparks' near the bottom
-  if( random(255) < Sparking ) {
-    int y = random(7);
-    heat[y] = heat[y] + random(160,255);
-    //heat[y] = random(160,255);
-  }
+    // Step 2. Heat from each cell drifts 'up' and diffuses a little
+    for (int k = PIXEL_COUNT - 1; k >= 2; k--) {
+      heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2]) / 3;
+    }
+     
+    // Step 3. Randomly ignite new 'sparks' near the bottom
+    if (random(255) < Sparking) {
+      int y = random(7);
+      heat[y] = heat[y] + random(160, 255);
+    }
 
-  // Step 4.  Convert heat to LED colors
-  for( int j = 0; j < PIXEL_COUNT; j++) {
-    setPixelHeatColor(j, heat[j] );
-  }
+    // Step 4. Convert heat to LED colors
+    for (int j = 0; j < PIXEL_COUNT; j++) {
+      setPixelHeatColor(j, heat[j]);
+    }
 
-  showStrip();
-  delay(SpeedDelay);
+    pixels.show();
+  }
 }
 
 void setPixelHeatColor (int Pixel, byte temperature) {
@@ -238,99 +329,64 @@ void setPixelHeatColor (int Pixel, byte temperature) {
  
   // figure out which third of the spectrum we're in:
   if( t192 > 0x80) {                     // hottest
-    setPixel(Pixel, 255, 255, heatramp);
+    pixels.setPixelColor(Pixel, 255, 255, heatramp);
   } else if( t192 > 0x40 ) {             // middle
-    setPixel(Pixel, 255, heatramp, 0);
+    pixels.setPixelColor(Pixel, 255, heatramp, 0);
   } else {                               // coolest
-    setPixel(Pixel, heatramp, 0, 0);
+    pixels.setPixelColor(Pixel, heatramp, 0, 0);
   }
 }
 
-void bouncingColoredBalls(int BallCount, byte colors[][3]) {
-  float Gravity = -9.81;
-  int StartHeight = 1;
- 
-  float Height[BallCount];
-  float ImpactVelocityStart = sqrt( -2 * Gravity * StartHeight );
-  float ImpactVelocity[BallCount];
-  float TimeSinceLastBounce[BallCount];
-  int   Position[BallCount];
-  long  ClockTimeSinceLastBounce[BallCount];
-  float Dampening[BallCount];
- 
-  for (int i = 0 ; i < BallCount ; i++) {  
-    ClockTimeSinceLastBounce[i] = millis();
-    Height[i] = StartHeight;
-    Position[i] = 0;
-    ImpactVelocity[i] = ImpactVelocityStart;
-    TimeSinceLastBounce[i] = 0;
-    Dampening[i] = 0.90 - float(i)/pow(BallCount,2);
-  }
+//void loop() {
+ // meteorRain(0xff,0xff,0xff,10, 64, true, 30);
+//}
 
-  while (true) {
-    for (int i = 0 ; i < BallCount ; i++) {
-      TimeSinceLastBounce[i] =  millis() - ClockTimeSinceLastBounce[i];
-      Height[i] = 0.5 * Gravity * pow( TimeSinceLastBounce[i]/1000 , 2.0 ) + ImpactVelocity[i] * TimeSinceLastBounce[i]/1000;
- 
-      if ( Height[i] < 0 ) {                      
-        Height[i] = 0;
-        ImpactVelocity[i] = Dampening[i] * ImpactVelocity[i];
-        ClockTimeSinceLastBounce[i] = millis();
- 
-        if ( ImpactVelocity[i] < 0.01 ) {
-          ImpactVelocity[i] = ImpactVelocityStart;
-        }
-      }
-      Position[i] = round( Height[i] * (PIXEL_COUNT - 1) / StartHeight);
-    }
- 
-    for (int i = 0 ; i < BallCount ; i++) {
-      setPixel(Position[i],colors[i][0],colors[i][1],colors[i][2]);
-    }
-   
-    showStrip();
-    setAll(0,0,0);
-  }
-}
+unsigned long lastUpdateTime = 0;
 
-void meteorRain(byte red, byte green, byte blue, byte meteorSize, byte meteorTrailDecay, boolean meteorRandomDecay, int SpeedDelay) {  
-  setAll(0,0,0);
- 
-  for(int i = 0; i < PIXEL_COUNT+PIXEL_COUNT; i++) {
-   
-   
-    // fade brightness all LEDs one step
-    for(int j=0; j<PIXEL_COUNT; j++) {
-      if( (!meteorRandomDecay) || (random(10)>5) ) {
-        fadeToBlack(j, meteorTrailDecay );        
+void meteorRain(byte red, byte green, byte blue, byte meteorSize, byte meteorTrailDecay, boolean meteorRandomDecay, int SpeedDelay) {
+  static int i = 0; // Declare and initialize i as a static variable
+  
+  if (millis() - lastUpdateTime >= SpeedDelay) {
+    lastUpdateTime = millis();
+
+    pixels.Color(0, 0, 0);
+
+    // Move the meteor
+    for (int j = 0; j < PIXEL_COUNT; j++) {
+      if ((!meteorRandomDecay) || (random(10) > 5)) {
+        fadeToBlack(j, meteorTrailDecay);
       }
     }
-   
-    // draw meteor
-    for(int j = 0; j < meteorSize; j++) {
-      if( ( i-j <PIXEL_COUNT) && (i-j>=0) ) {
-        setPixel(i-j, red, green, blue);
+
+    // Draw meteor
+    for (int j = 0; j < meteorSize; j++) {
+      if ((i - j < PIXEL_COUNT) && (i - j >= 0)) {
+        pixels.setPixelColor(i - j, red, green, blue);
       }
     }
-   
-    showStrip();
-    delay(SpeedDelay);
+
+    pixels.show();
+
+    i++; // Increment i for next iteration
+    if (i >= PIXEL_COUNT + PIXEL_COUNT) { // Reset i when it exceeds the pixel count
+      i = 0;
+    }
   }
 }
 
 void fadeToBlack(int ledNo, byte fadeValue) {
-    uint32_t oldColor;
-    uint8_t r, g, b;
-    int value;
-   
-    oldColor = strip.getPixelColor(ledNo);
-    r = (oldColor & 0x00ff0000UL) >> 16;
-    g = (oldColor & 0x0000ff00UL) >> 8;
-    b = (oldColor & 0x000000ffUL);
+  uint32_t oldColor;
+  uint8_t r, g, b;
+  int value;
 
-    r=(r<=10)? 0 : (int) r-(r*fadeValue/256);
-    g=(g<=10)? 0 : (int) g-(g*fadeValue/256);
-    b=(b<=10)? 0 : (int) b-(b*fadeValue/256);
-   
-    strip.setPixelColor(ledNo, r,g,b); 
+  oldColor = pixels.getPixelColor(ledNo);
+  r = (oldColor & 0x00ff0000UL) >> 16;
+  g = (oldColor & 0x0000ff00UL) >> 8;
+  b = (oldColor & 0x000000ffUL);
+
+  r = (r <= 10) ? 0 : (int)r - (r * fadeValue / 256);
+  g = (g <= 10) ? 0 : (int)g - (g * fadeValue / 256);
+  b = (b <= 10) ? 0 : (int)b - (b * fadeValue / 256);
+
+  pixels.setPixelColor(ledNo, r, g, b);
 }
