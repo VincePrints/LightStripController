@@ -11,10 +11,8 @@
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 volatile bool buttonPressed = false;
-volatile bool longPressActive = false;
 unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 300; // Adjust this value as needed
-unsigned long longPress = 3000; // Adjust this value as needed
+unsigned long debounceDelay = 250; // Adjust this value as needed
 
 const int numShows = 15;
 int showType = 0;
@@ -44,7 +42,6 @@ void loop() {
   if (buttonPressed) {
     handleButtonPress();
     buttonPressed = false; // Reset buttonPressed flag
-    longPressActive = false; // Reset longPressActive flag
   }
 }
 
@@ -53,20 +50,12 @@ void buttonInterrupt() {
   if (currentMillis - lastDebounceTime >= debounceDelay) {
     Serial.println("Button Pressed");
     buttonPressed = true;
-    if (currentMillis - lastDebounceTime >= longPress) {
-      Serial.println("Long Press");
-      longPressActive = true; // Set long press flag
-    }
     lastDebounceTime = currentMillis;
   }
 }
 
 void handleButtonPress() {
-  if (longPressActive) {
-    showType = 0; // Set showType to 0 for long press
-  } else {
-    showType = (showType + 1) % numShows; // Increment showType for short press
-  }
+  showType = (showType + 1) % numShows; // Increment showType for short press
   pixels.clear(); // Clear pixels
   pixels.show(); // Update pixels
 }
@@ -74,28 +63,28 @@ void handleButtonPress() {
 void startShow(int i) {
   switch(i){
     case 0: Serial.println("Off");
-            colorWipe(pixels.Color(  0,   0,   0), 10);
+            colorPulse(pixels.Color(  0,   0,   0), 0);
             break;
     case 1: Serial.println("White");
-            colorWipe(pixels.Color(100, 100, 100), 50);
+            colorPulse(pixels.Color(100, 100, 100), 25);
             break;
     case 2: Serial.println("Red");
-            colorWipe(pixels.Color(255, 0, 0), 50);
+            colorPulse(pixels.Color(255, 0, 0), 25);
             break;
     case 3: Serial.println("Orange");
-            colorWipe(pixels.Color(244, 50, 0), 50);
+            colorPulse(pixels.Color(244, 50, 0), 25);
             break;
     case 4: Serial.println("Yellow");
-            colorWipe(pixels.Color(255, 100, 0), 50);
+            colorPulse(pixels.Color(255, 100, 0), 25);
             break;
     case 5: Serial.println("Green");
-            colorWipe(pixels.Color(0, 255, 0), 50);
+            colorPulse(pixels.Color(0, 255, 0), 25);
             break;
     case 6: Serial.println("Teal");
-            colorWipe(pixels.Color(0, 255, 255), 50);
+            colorPulse(pixels.Color(0, 255, 255), 25);
             break;
     case 7: Serial.println("Violet");
-            colorWipe(pixels.Color(150, 50, 255), 50);
+            colorPulse(pixels.Color(150, 50, 255), 25);
             break;
     case 8: Serial.println("Rainbow");
             rainbowCycle(50);
@@ -110,7 +99,7 @@ void startShow(int i) {
             cylonBounce(0xff, 0, 0, 4, 20, 50);
             break; // Add break statement here
     case 12: Serial.println("Sparkle");
-            sparkle(200, 200, 200, 0);
+            sparkle(255, 255, 255, 0);
             break; // Add break statement here
     case 13: Serial.println("Fire"); 
             fire(55,120);
@@ -121,22 +110,36 @@ void startShow(int i) {
   }
 }
 
-void colorWipe(uint32_t c, uint8_t wait) {
-  static uint16_t currentPixel = 0;
+void colorPulse(uint32_t c, uint8_t pulseSpeed) {
+  static bool increasing = true;
+  static uint8_t brightness = 0;
   static unsigned long lastUpdate = 0;
+
+  unsigned long currentMillis = millis();
   
-  if (millis() - lastUpdate >= wait) {
-    pixels.setPixelColor(currentPixel, c);
-    pixels.show();
-    
-    // Move to the next pixel
-    currentPixel++;
-    
-    // If we have reached the end, reset to the beginning
-    if (currentPixel >= pixels.numPixels()) {
-      currentPixel = 0;
+  if (currentMillis - lastUpdate >= pulseSpeed) {
+    if (increasing) {
+      brightness += 5; // Increase brightness gradually
+      if (brightness >= 255) {
+        increasing = false; // Start decreasing brightness
+      }
+    } else {
+      brightness -= 5; // Decrease brightness gradually
+      if (brightness <= 0) {
+        increasing = true; // Start increasing brightness again
+      }
+    }
+
+    // Set all pixels to the specified color with current brightness
+    for (uint16_t i = 0; i < pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, pixels.Color(
+        (uint8_t)(((c >> 16) & 0xFF) * brightness / 255),
+        (uint8_t)(((c >> 8) & 0xFF) * brightness / 255),
+        (uint8_t)((c & 0xFF) * brightness / 255)
+      ));
     }
     
+    pixels.show();
     lastUpdate = millis();
   }
 }
