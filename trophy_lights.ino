@@ -1,4 +1,6 @@
-//Effects pulled from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+//Written by Vince_Prints 2024
+//Effects ideas from: https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+//Adapted to be non-blocking by Vince_Prints
 
 #include <Adafruit_NeoPixel.h>
 
@@ -88,25 +90,25 @@ void startShow(int i) {
             break;
     case 8: Serial.println("Rainbow");
             rainbowCycle(50);
-            break; // Add break statement here
+            break;
     case 9: Serial.println("Rainbow Theater");
             theaterChaseRainbow(50);
-            break; // Add break statement here
+            break;
     case 10: Serial.println("Strobe"); 
             strobe(100, 100, 100, 10, 50, 500);
-            break; // Add break statement here
+            break;
     case 11: Serial.println("Cylon Bounce"); 
             cylonBounce(0xff, 0, 0, 4, 20, 50);
-            break; // Add break statement here
+            break;
     case 12: Serial.println("Sparkle");
             sparkle(255, 255, 255, 0);
-            break; // Add break statement here
+            break;
     case 13: Serial.println("Fire"); 
             fire(55,120);
-            break; // Add break statement here
+            break;
     case 14: Serial.println("Meteor Rain");
             meteorRain(0xff,0xff,0xff,10, 64, true, 30);
-            break; // Add break statement here
+            break;
   }
 }
 
